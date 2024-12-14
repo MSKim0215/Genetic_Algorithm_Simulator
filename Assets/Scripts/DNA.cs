@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 namespace MinSeob.Genetic
 {
@@ -7,12 +6,12 @@ namespace MinSeob.Genetic
     {
         private Random random;
         private Func<T> getRandomGene;
-        private Func<float, int> fitnessFunction;
+        private Func<int, float> fitnessFunction;
 
-        public T[] Genes { private set; get; }             // 유전자
-        public float Fitness { private set; get; }         // 적합도
+        public T[] Genes { get; private set; }
+        public float Fitness { get; private set; }
 
-        public DNA(int size, Random random, Func<T> getRandomGene, Func<float, int> fitnessFunction, bool isInitGene = true)
+        public DNA(int size, Random random, Func<T> getRandomGene, Func<int, float> fitnessFunction, bool shouldInitGenes = true)
         {
             Genes = new T[size];
 
@@ -20,39 +19,41 @@ namespace MinSeob.Genetic
             this.getRandomGene = getRandomGene;
             this.fitnessFunction = fitnessFunction;
 
-            if(isInitGene)
+            if (shouldInitGenes)
             {
-                for(int i = 0; i < Genes.Length; i++)
-                {
-                    Genes[i] = getRandomGene();
-                }
+                InitializeGenes();
             }
         }
 
-        public float CalcuateFitness(int index)
+        private void InitializeGenes()
         {
-            return Fitness = fitnessFunction(index);
+            for (int i = 0; i < Genes.Length; i++)
+            {
+                Genes[i] = getRandomGene();
+            }
         }
 
-        public DNA<T> CrossOver(DNA<T> otherParent)
-        {
-            var child = new DNA<T>(Genes.Length, random, getRandomGene, fitnessFunction, isInitGene: false);
+        public float CalculateFitness(int index) => Fitness = fitnessFunction(index);
 
-            for(int i = 0; i < Genes.Length; i++)
+        public DNA<T> Crossover(DNA<T> otherParent)
+        {
+            DNA<T> child = new(Genes.Length, random, getRandomGene, fitnessFunction, shouldInitGenes: false);
+
+            for (int i = 0; i < Genes.Length; i++)
             {
-                child.Genes[i] = random.NextDouble() < 0.5f ? Genes[i] : otherParent.Genes[i];
+                child.Genes[i] = random.NextDouble() < 0.5 ? Genes[i] : otherParent.Genes[i];
             }
 
             return child;
         }
 
-        public void Mutate(float mutateRatio)
+        public void Mutate(float mutationRate)
         {
-            for(int i = 0; i < Genes.Length; i++)
+            for (int i = 0; i < Genes.Length; i++)
             {
-                if(random.NextDouble() < mutateRatio)
+                if (random.NextDouble() < mutationRate)
                 {
-                    // TODO: Mutate Do SomeThing
+                    Genes[i] = getRandomGene();
                 }
             }
         }

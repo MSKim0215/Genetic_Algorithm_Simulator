@@ -6,88 +6,133 @@ namespace MinSeob.Genetic
 {
     public class GeneticManager<T>
     {
-        private int generation;        // 세대
-        private float bestFitness;     // 최고 적합도
-        private T[] bestGenes;          // 최고 유전자
-        private float mutateRatio;     // 돌연변이 발생율
-        private float totalFitness;    // 적합도 총합
+        public List<DNA<T>> CurrentPopulation { get; private set; }
+        public int Generation { get; private set; }
+        public float BestFitness { get; private set; }
+        public T[] BestGenes { get; private set; }
 
+        public int Elitism;
+        public float MutationRate;
+
+        private List<DNA<T>> NextPopulation;
         private Random random;
+        private float totalFitness;
+        private int dnaSize;
+        private Func<T> getRandomGene;
+        private Func<int, float> fitnessFunction;
 
-        public List<DNA<T>> CurrentPopulation { private set; get; } = new();     // 현재 세대 인구수
-        public List<DNA<T>> NextPopulation { private set; get; } = new();        // 다음 세대 인구수
-
-        public GeneticManager(int populationSize, int dnaSize, Random random, Func<T> getRandomGene, Func<float, int> fitnessFunction, float mutateRatio = 0.01f)
+        public GeneticManager(int populationSize, int dnaSize, Random random, Func<T> getRandomGene, Func<int, float> fitnessFunction,
+            int elitism, float mutationRate = 0.01f)
         {
-            generation = 1;
-            CurrentPopulation = new();
+            Generation = 1;
+            Elitism = elitism;
+            MutationRate = mutationRate;
+            CurrentPopulation = new(populationSize);
+            NextPopulation = new(populationSize);
             this.random = random;
-            this.mutateRatio = mutateRatio;
+            this.dnaSize = dnaSize;
+            this.getRandomGene = getRandomGene;
+            this.fitnessFunction = fitnessFunction;
 
-            for(int i = 0; i < populationSize; i++)
+            BestGenes = new T[dnaSize];
+
+            for (int i = 0; i < populationSize; i++)
             {
-                CurrentPopulation.Add(new(dnaSize, random, getRandomGene, fitnessFunction, isInitGene: true));
+                CurrentPopulation.Add(new(dnaSize, random, getRandomGene, fitnessFunction));
             }
         }
 
-        public void NextGenerate()
+        public void NewGeneration(int numNewDNA = 0, bool crossoverNewDNA = false)
         {
-            if (CurrentPopulation.Count <= 0) return;
+            int finalCount = CurrentPopulation.Count + numNewDNA;
+            if (finalCount <= 0) return;
 
-            CalcutateFitness();
-
-            if(NextPopulation.Count > 0)
+            if (CurrentPopulation.Count > 0)
             {
-                NextPopulation.Clear();
+                CalculateFitness();
+                CurrentPopulation.Sort(CompareDNA);
             }
+            NextPopulation.Clear();
 
-            for(int i = 0; i < CurrentPopulation.Count; i++)
+            for (int i = 0; i < CurrentPopulation.Count; i++)
             {
-                DNA<T> parentA = ChooseParent();
-                DNA<T> parentB = ChooseParent();
-
-                DNA<T> child = parentA.CrossOver(parentB);
-                child.Mutate(mutateRatio);
-
-                NextPopulation.Add(child);
-            }
-
-            CurrentPopulation = NextPopulation;
-            generation++;
-        }
-
-        public void CalcutateFitness()
-        {
-            totalFitness = 0f;
-            DNA<T> bestDNA = CurrentPopulation.FirstOrDefault();
-
-            for(int i = 0; i < CurrentPopulation.Count; i++)
-            {
-                totalFitness += CurrentPopulation[i].CalcuateFitness(i);
-
-                if (bestDNA.Fitness < CurrentPopulation[i].Fitness)
+                if (i < Elitism && i < CurrentPopulation.Count)
                 {
-                    bestDNA = CurrentPopulation[i];
+                    NextPopulation.Add(CurrentPopulation[i]);
+                }
+                else if (i < CurrentPopulation.Count || crossoverNewDNA)
+                {
+                    DNA<T> parent1 = ChooseParent();
+                    DNA<T> parent2 = ChooseParent();
+
+                    DNA<T> child = parent1.Crossover(parent2);
+
+                    child.Mutate(MutationRate);
+
+                    NextPopulation.Add(child);
+                }
+                else
+                {
+                    NextPopulation.Add(new DNA<T>(dnaSize, random, getRandomGene, fitnessFunction, shouldInitGenes: true));
                 }
             }
 
-            bestFitness = bestDNA.Fitness;
-            bestDNA.Genes.CopyTo(bestGenes, 0);
+            var tmpList = CurrentPopulation;
+            CurrentPopulation = NextPopulation;
+            NextPopulation = tmpList;
+
+            Generation++;
         }
 
-        public DNA<T> ChooseParent()
+        private int CompareDNA(DNA<T> a, DNA<T> b)
+        {
+            if (a.Fitness > b.Fitness)
+            {
+                return -1;
+            }
+            else if (a.Fitness < b.Fitness)
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        private void CalculateFitness()
+        {
+            totalFitness = 0;
+            DNA<T> best = CurrentPopulation[0];
+
+            for (int i = 0; i < CurrentPopulation.Count; i++)
+            {
+                totalFitness += CurrentPopulation[i].CalculateFitness(i);
+
+                if (CurrentPopulation[i].Fitness > best.Fitness)
+                {
+                    best = CurrentPopulation[i];
+                }
+            }
+
+            BestFitness = best.Fitness;
+            best.Genes.CopyTo(BestGenes, 0);
+        }
+
+        private DNA<T> ChooseParent()
         {
             double randomNumber = random.NextDouble() * totalFitness;
 
-            for(int i = 0; i < CurrentPopulation.Count; i++)
+            for (int i = 0; i < CurrentPopulation.Count; i++)
             {
-                if(randomNumber < CurrentPopulation[i].Fitness)
+                if (randomNumber < CurrentPopulation[i].Fitness)
                 {
                     return CurrentPopulation[i];
                 }
 
                 randomNumber -= CurrentPopulation[i].Fitness;
             }
+
             return null;
         }
     }
