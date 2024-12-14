@@ -5,12 +5,12 @@ namespace MinSeob.Genetic
 {
     public class DNA<T>
     {
-        public T[] Genes { private set; get; }             // 유전자
-        public float Fitness { private set; get; }         // 적합도
-
         private Random random;
         private Func<T> getRandomGene;
         private Func<float, int> fitnessFunction;
+
+        public T[] Genes { private set; get; }             // 유전자
+        public float Fitness { private set; get; }         // 적합도
 
         public DNA(int size, Random random, Func<T> getRandomGene, Func<float, int> fitnessFunction, bool isInitGene = true)
         {
@@ -34,7 +34,7 @@ namespace MinSeob.Genetic
             return Fitness = fitnessFunction(index);
         }
 
-        public void CrossOver(DNA<T> otherParent)
+        public DNA<T> CrossOver(DNA<T> otherParent)
         {
             var child = new DNA<T>(Genes.Length, random, getRandomGene, fitnessFunction, isInitGene: false);
 
@@ -42,6 +42,8 @@ namespace MinSeob.Genetic
             {
                 child.Genes[i] = random.NextDouble() < 0.5f ? Genes[i] : otherParent.Genes[i];
             }
+
+            return child;
         }
 
         public void Mutate(float mutateRatio)
